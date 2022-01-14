@@ -136,7 +136,10 @@ ScxmlSMInterface::ScxmlSMInterface(const std::string& scxml_file)
   }
 }
 
-void ScxmlSMInterface::addOnEntryCallback(const QString& state, const std::function<void()>& callback, bool async)
+void ScxmlSMInterface::addOnEntryCallback(const QString& state,
+                                          const std::function<void()>& callback,
+                                          bool async,
+                                          bool save_connection)
 {
   if (state_transition_map_.find(state) == state_transition_map_.end())
     throw std::runtime_error("State '" + state.toStdString() + "' is not known");
@@ -144,12 +147,28 @@ void ScxmlSMInterface::addOnEntryCallback(const QString& state, const std::funct
   if (async)
   {
     auto async_cb = [this, state, callback]() { this->future_map_[state] = QtConcurrent::run(callback); };
-    sm_->connectToState(state, QScxmlStateMachine::onEntry(async_cb));
+    auto conn = sm_->connectToState(state, QScxmlStateMachine::onEntry(async_cb));
+    if (save_connection)
+      on_entry_conn_map_[state] = conn;
   }
   else
   {
-    sm_->connectToState(state, QScxmlStateMachine::onEntry(callback));
+    auto conn = sm_->connectToState(state, QScxmlStateMachine::onEntry(callback));
+    if (save_connection)
+      on_entry_conn_map_[state] = conn;
   }
+}
+
+bool ScxmlSMInterface::removeOnEntryCallback(const QString& state)
+{
+  auto entry = on_entry_conn_map_.find(state);
+  if (entry != on_entry_conn_map_.end())
+  {
+    QObject::disconnect(entry->second);
+    on_entry_conn_map_.erase(entry);
+    return true;
+  }
+  return false;
 }
 
 void ScxmlSMInterface::addOnExitCallback(const QString& state, const std::function<void()>& callback)

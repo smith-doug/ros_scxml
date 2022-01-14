@@ -9,6 +9,8 @@ namespace scxml_core
 /** @brief Container for states and their associated transitions */
 using StateTransitionMap = std::map<QString, QSet<QString>>;
 
+using CallbackConnectionMap = std::map<QString, QMetaObject::Connection>;
+
 /** @brief Creates a map of known states and transition events associated with those states */
 StateTransitionMap getStateTransitionMap(const std::string& scxml_file);
 
@@ -26,9 +28,20 @@ public:
   /**
    * @brief Adds a callback to the input state that will be invoked on entry to the state
    * @param async - flag for executing the input callback asynchronously
+   * @param save_connection Saves the QMetaObject::Connection to allow removal of this callback
    * @throws exception if the state does not exist in the state machine
    */
-  void addOnEntryCallback(const QString& state, const std::function<void()>& callback, bool async = false);
+  void addOnEntryCallback(const QString& state,
+                          const std::function<void()>& callback,
+                          bool async = false,
+                          bool save_connection = false);
+
+  /**
+   * @brief Removes the onEntry callback for this state if it exists
+   * @param state state name
+   * @return True if there was a callback and it was removed
+   */
+  bool removeOnEntryCallback(const QString& state);
 
   /**
    * @brief Adds a callback to the input state that will be invoked when leaving the state
@@ -56,6 +69,8 @@ protected:
   QScxmlStateMachine* sm_;
   const StateTransitionMap state_transition_map_;
   std::map<QString, QFuture<void>> future_map_;
+
+  CallbackConnectionMap on_entry_conn_map_;
 };
 
 }  // namespace scxml_core
